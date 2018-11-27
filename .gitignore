@@ -1,0 +1,8 @@
+lsl_ext
+*.lsl
+*.lslx
+builtins.txt
+builtins_parser/builtins_parser.go
+builtins_parser/y.output
+parser/parser.go
+parser/y.output
