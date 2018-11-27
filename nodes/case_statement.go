@@ -2,7 +2,6 @@ package nodes
 
 import (
     "fmt"
-    "strings"
 )
 
 type CaseStatement struct {
@@ -21,58 +20,70 @@ func (self *CaseStatement) StatementType() StatementType {
     return StatementCase
 }
 
+func (self *CaseStatement) IfString() string {
+    if len(self.Expressions) == 0 {
+        return fmt.Sprintf("jump %s;", self.Label());
+    }
+
+    expr := ""
+    if self.Switch != nil {
+        expr = self.Switch.Expression.String()
+
+        if self.Switch.Expression.ExpressionType() == ExpressionBinary {
+            expr = "(" + expr + ")"
+        }
+    }
+
+    result := "if ("
+
+    if len(self.Expressions) == 1 {
+        if self.Expressions[0].ExpressionType() == ExpressionBinary {
+            result += fmt.Sprintf("%s == (%s)", expr, self.Expressions[0])
+        } else {
+            result += fmt.Sprintf("%s == %s", expr, self.Expressions[0])
+        }
+    } else {
+        for i, child := range self.Expressions {
+            if i != 0 {
+                result += " || "
+            }
+
+            if child.ExpressionType() == ExpressionBinary {
+                result += fmt.Sprintf("(%s == (%s))", expr, child)
+            } else {
+                result += fmt.Sprintf("(%s == %s)", expr, child)
+            }
+        }
+    }
+
+    result += fmt.Sprintf(") jump %s;", self.Label())
+
+    return result
+}
+
 func (self *CaseStatement) String() string {
     result := ""
 
     if len(self.Expressions) == 0 {
-        result += "// default:"
+        result += fmt.Sprintf("@%s; // default:", self.Label())
     } else {
         expr := ""
-        endLabel := ""
-        if self.Switch != nil {
-            expr = self.Switch.Expression.String()
-            endLabel = self.Switch.BreakLabel()
-
-            if self.Switch.Expression.ExpressionType() == ExpressionBinary {
-                expr = "(" + expr + ")"
-            }
-        }
-
-        result += "// case "
         for i, child := range self.Expressions {
             if i != 0 {
-                result += ", "
+                expr += ", "
             }
 
-            result += child.String()
-        }
-        result += ":\n" + strings.Repeat(Indentation, self.IndentationLevel)
-        result += "if ("
-
-        if len(self.Expressions) == 1 {
-            if self.Expressions[0].ExpressionType() == ExpressionBinary {
-                result += fmt.Sprintf("%s != (%s)", expr, self.Expressions[0])
-            } else {
-                result += fmt.Sprintf("%s != %s", expr, self.Expressions[0])
-            }
-        } else {
-            for i, child := range self.Expressions {
-                if i != 0 {
-                    result += " && "
-                }
-
-                if child.ExpressionType() == ExpressionBinary {
-                    result += fmt.Sprintf("(%s != (%s))", expr, child)
-                } else {
-                    result += fmt.Sprintf("(%s != %s)", expr, child)
-                }
-            }
+            expr += child.String()
         }
 
-        result += fmt.Sprintf(") jump %s;\n", endLabel)
+        result += fmt.Sprintf("@%s; // case %s:", self.Label(), expr)
     }
 
     return result
+}
+
+func (self *CaseStatement) Label() string {
+    return fmt.Sprintf("case_%d", self.At.Offset)
 }
 
 func (self *CaseStatement) ConnectTree() {

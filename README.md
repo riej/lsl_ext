@@ -188,28 +188,28 @@ default:
 integer i = 5;
 
 // switch(i + 1)
-// case 1, 3, 5:
-    if (((i + 1) != 1) && ((i + 1) != 3) && ((i + 1) != 5)) jump switch_end_818;
+if (((i + 1) == 1) || ((i + 1) == 3) || ((i + 1) == 5)) jump case_1894;
+else if ((i + 1) == 2) jump case_1949;
+else if ((i + 1) == 4) jump case_1980;
+else jump case_2023;
 
+@case_1894; // case 1, 3, 5:
     llOwnerSay("1, 3, 5");
 
-    jump switch_end_818; // break
+    jump switch_end_1876; // break
 
-// case 2:
-    if ((i + 1) != 2) jump switch_end_818;
-
+@case_1949; // case 2:
     llOwnerSay("2");
 
-// case 4:
-    if ((i + 1) != 4) jump switch_end_818;
-
+@case_1980; // case 4:
     llOwnerSay("4");
 
-    jump switch_end_818; // break
+    jump switch_end_1876; // break
 
-// default:
+@case_2023; // default:
     llOwnerSay("default");
-@switch_end_818;
+
+@switch_end_1876;
 ```
 C-style `switch` operator. Almost like in Firestorm, but colon `:` is required, and no need in braces `{...}`.
 
