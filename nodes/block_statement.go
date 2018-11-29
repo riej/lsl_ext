@@ -1,6 +1,7 @@
 package nodes
 
 import (
+    "fmt"
 	"strings"
 
 	"../types"
@@ -108,6 +109,11 @@ func (self *BlockStatement) ConnectTree() {
 
 		switch child.NodeType() {
 		case NodeVariable:
+            existing := currScope.FindVariable(child.(*Variable).Name.String())
+            if existing != nil && existing.Parent == self {
+                self.isValid = false
+                self.Script.AddError(child, child.Position(), fmt.Sprintf("redeclared variable \"%s\" (previously declared at %s)", child.(*Variable).Name, existing.Position()))
+            }
 			currScope = currScope.AddVariable(child.(*Variable))
 		}
 	}

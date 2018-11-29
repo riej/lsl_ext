@@ -119,12 +119,13 @@ import (
 
 %type <nodes> preproc_include
 
-%type <node> global
+%type <nodes> global
 %type <comment> comment
 
 %type <identifier> identifier
 %type <_type> typename
-%type <variable> variable
+%type <variables> variable_declaration
+%type <variables> variable_declarations
 %type <function> function
 
 %type <variables> function_arguments
@@ -157,11 +158,13 @@ import (
 %type <expressions> list_values
 
 %type <_struct> struct
-%type <variables> variables
 
 %type <expression> struct_expression
 %type <variable> struct_expression_variable
 %type <variables> struct_expression_variables
+
+%type <variable> pre_variable
+%type <variables> pre_variables
 
 %%
 
@@ -189,13 +192,13 @@ lscript_program:
 
 globals:
     global {
-        $$ = []nodes.Node{ $1 }
+        $$ = $1
     }
 |   globals preproc_include {
         $$ = append($1, $2...)
     }
 |   globals global {
-        $$ = append($1, $2)
+        $$ = append($1, $2...)
     }
 
 preproc_include:
@@ -217,16 +220,18 @@ preproc_include:
 
 global:
     comment {
-        $$ = $1
+        $$ = []nodes.Node{ $1 }
     }
-|   variable {
-        $$ = $1
+|   variable_declaration {
+        for _, child := range $1 {
+            $$ = append($$, child)
+        }
     }
 |   function {
-        $$ = $1
+        $$ = []nodes.Node{ $1 }
     }
 |   struct {
-        $$ = $1
+        $$ = []nodes.Node{ $1 }
     }
 
 
@@ -323,96 +328,94 @@ constant:
     }
 
 
-variable:
-    typename identifier ';' {
+pre_variable:
+    identifier {
         $$ = &nodes.Variable{
-            Name: $2,
-            Type: $1,
-        }
-        $$.SetPosition($2.Position())
-        yylex.(*Lexer).lastNode = $$
-    }
-|   typename identifier '=' expression ';' {
-        $$ = &nodes.Variable{
-            Name: $2,
-            Type: $1,
-            RValue: $4,
-        }
-        $$.SetPosition($2.Position())
-        yylex.(*Lexer).lastNode = $$
-    }
-|   CONST identifier '=' expression ';' {
-        $$ = &nodes.Variable{
-            Name: $2,
-            RValue: $4,
-            IsConstant: true,
-        }
-        $$.SetPosition($2.Position())
-        yylex.(*Lexer).lastNode = $$
-    }
-|   identifier identifier ';' {
-        $$ = &nodes.Variable{
-            Name: $2,
-            Type: types.Type($1.Name),
-            RValue: &nodes.StructExpression{
-                Name: $1,
-            },
-        }
-        $$.SetPosition($2.Position())
-        yylex.(*Lexer).lastNode = $$
-    }
-|   identifier identifier '=' expression ';' {
-        $$ = &nodes.Variable{
-            Name: $2,
-            Type: types.Type($1.Name),
-            RValue: $4,
-        }
-        $$.SetPosition($2.Position())
-        yylex.(*Lexer).lastNode = $$
-    }
-|   identifier ARRAY_BRACES identifier ';' {
-        $$ = &nodes.Variable{
-            Name: $3,
-            Type: types.Type($1.Name + "[]"),
+            Name: $1,
         }
         $$.SetPosition($1.Position())
         yylex.(*Lexer).lastNode = $$
     }
-|   identifier identifier '{' '}' ';' {
+|   identifier '=' expression {
         $$ = &nodes.Variable{
-            Name: $2,
-            Type: types.Type($1.Name),
-            RValue: &nodes.StructExpression{
-                Name: $1,
-            },
+            Name: $1,
+            RValue: $3,
         }
-        $$.SetPosition($2.Position())
+        $$.SetPosition($1.Position())
         yylex.(*Lexer).lastNode = $$
     }
-|   identifier identifier '{' struct_expression_variables '}' ';' {
+|   identifier '{' '}' {
         $$ = &nodes.Variable{
-            Name: $2,
-            Type: types.Type($1.Name),
+            Name: $1,
             RValue: &nodes.StructExpression{
-                Name: $1,
-                Fields: $4,
             },
         }
-        $$.SetPosition($2.Position())
+        $$.RValue.SetPosition($2)
+        $$.SetPosition($1.Position())
+        yylex.(*Lexer).lastNode = $$
+    }
+|   identifier '{' struct_expression_variables '}' {
+        $$ = &nodes.Variable{
+            Name: $1,
+            RValue: &nodes.StructExpression{
+                Fields: $3,
+            },
+        }
+        $$.RValue.SetPosition($2)
+        $$.SetPosition($1.Position())
         yylex.(*Lexer).lastNode = $$
     }
 
-variables:
-    variable {
+pre_variables:
+    pre_variable {
         $$ = append($$, $1)
     }
-|   variable variables {
-        $$ = append($$, $1)
-        $$ = append($$, $2...)
+|   pre_variables ',' pre_variable {
+        $$ = append($1, $3)
+    }
+
+variable_declaration:
+    typename pre_variables ';' {
+        for _, child := range $2 {
+            child.Type = $1
+            $$ = append($$, child)
+        }
+    }
+|   identifier pre_variables ';' {
+        for _, child := range $2 {
+            child.Type = types.Type($1.Name)
+            if child.RValue == nil {
+                child.RValue = &nodes.StructExpression{
+                    Name: $1,
+                }
+                child.RValue.SetPosition(child.Position())
+            }
+            $$ = append($$, child)
+        }
+    }
+|   identifier ARRAY_BRACES pre_variables ';' {
+        for _, child := range $3 {
+            child.Type = types.Type($1.Name + "[]")
+            $$ = append($$, child)
+        }
+    }
+|   CONST pre_variables ';' {
+        for _, child := range $2 {
+            child.IsConstant = true
+            $$ = append($$, child)
+        }
+    }
+
+variable_declarations:
+    variable_declaration {
+        $$ = $1
+    }
+|   variable_declarations variable_declaration {
+        $$ = append($1, $2...)
     }
 
 struct:
-    STRUCT identifier '{' variables '}' {
+    STRUCT identifier '{' variable_declarations '}' {
         $$ = &nodes.Struct{
             Name: $2,
             Fields: $4,
@@ -590,11 +593,22 @@ statements_with_comments:
     statement {
         $$ = append($$, $1)
     }
+|   variable_declaration {
+        for _, child := range $1 {
+            $$ = append($$, child)
+        }
+    }
 |   comment {
         $$ = append($$, $1)
     }
 |   statement statements_with_comments {
         $$ = append($$, $1)
+        $$ = append($$, $2...)
+    }
+|   variable_declaration statements_with_comments {
+        for _, child := range $1 {
+            $$ = append($$, child)
+        }
         $$ = append($$, $2...)
     }
 |   comment statements_with_comments {
@@ -654,10 +668,6 @@ statement:
             Expression: $1,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
-    }
-|   variable {
-        $$ = $1
         yylex.(*Lexer).lastNode = $$
     }
 |   block_statement {

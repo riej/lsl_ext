@@ -56,6 +56,24 @@ func (self *StructExpression) String() string {
 func (self *StructExpression) ConnectTree() {
     self.isValid = true
 
+    if self.Name == nil {
+        if self.Parent.NodeType() == NodeVariable {
+            if self.Parent.(*Variable).Type.IsStruct() {
+                self.Name = &Identifier{
+                    Name: string(self.Parent.(*Variable).Type),
+                }
+            } else {
+                self.isValid = false
+                self.Script.AddError(self, self.At, "invalid struct expression")
+                return
+            }
+        } else {
+            self.isValid = false
+            self.Script.AddError(self, self.At, "invalid struct expression")
+            return
+        }
+    }
+
     self.Name.SetParent(self)
     self.Name.SetScope(self.Scope)
     self.Name.SetScript(self.Script)
@@ -95,11 +113,20 @@ func (self *StructExpression) ConnectTree() {
 }
 
 func (self *StructExpression) ValueType() types.Type {
+    if self.Name == nil {
+        return types.Unknown
+    }
+
     return types.Type(self.Name.String())
 }
 
 func (self *StructExpression) Children() []Node {
     result := make([]Node, 0)
+
+    if self.Name != nil {
+        result = append(result, self.Name)
+    }
+
     for _, child := range self.Fields {
         result = append(result, child)
     }

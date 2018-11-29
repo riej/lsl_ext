@@ -250,8 +250,11 @@ Pastes specified script as part of current script.
 
 #### Aliases
 `boolean` &rarr; `integer`
+
 `true` &rarr; `TRUE`
+
 `false` &rarr; `FALSE`
+
 `int` &rarr; `integer`
 
 Those aliases has no any special purpose.
@@ -268,6 +271,17 @@ integer ANOTHER_CONSTANT = 123;
 ```
 
 Constants cannot be assigned. Has no any special purpose too.
+
+#### Multiple variables declaration
+```c
+integer a = 5, b = 10, c;
+```
+&darr;&darr;&darr;
+```lsl
+integer a = 5;
+integer b = 10;
+integer c;
+```
 
 #### List/string length
 ```c

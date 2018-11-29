@@ -80,6 +80,11 @@ func (self *Variable) ConnectTree() {
 
 	self.isValid = true
 
+    if self.IsConstant && self.RValue == nil {
+		self.Script.AddError(self, self.At, "constant must have value")
+		self.isValid = false
+    }
+
     if strings.HasSuffix(string(self.Type), "[]") {
         sname := strings.TrimSuffix(string(self.Type), "[]")
         if _, ok := self.Script.Structs[sname]; !ok {
