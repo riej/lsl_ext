@@ -142,6 +142,7 @@ import (
 %type <state> state
 
 %type <blockStatement> block_statement
+%type <statement> empty_statement
 %type <statement> statement
 
 %type <statements> statements_with_comments
@@ -231,6 +232,9 @@ global:
         $$ = []nodes.Node{ $1 }
     }
 |   struct {
+        $$ = []nodes.Node{ $1 }
+    }
+|   empty_statement {
         $$ = []nodes.Node{ $1 }
     }
 
@@ -616,12 +620,17 @@ statements_with_comments:
         $$ = append($$, $2...)
     }
 
-statement:
+empty_statement:
     ';' {
         $$ = &nodes.EmptyStatement{
         }
         $$.SetPosition(yylex.(*Lexer).LastPos)
         yylex.(*Lexer).lastNode = $$
+    }
+
+statement:
+    empty_statement {
+        $$ = $1
     }
 |   STATE identifier ';' {
         $$ = &nodes.StateStatement{
