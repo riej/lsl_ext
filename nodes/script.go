@@ -29,6 +29,10 @@ type Script struct {
     States map[string]*State
     Structs map[string]*Struct
 
+
+    SkipUnused bool
+
+
 	Errors []ScriptError
 }
 
@@ -47,6 +51,23 @@ func (self *Script) String() string {
 
         if child.NodeType() == NodeStruct {
             continue
+        }
+
+        if self.SkipUnused {
+            switch child.NodeType() {
+            case NodeFunction:
+                if !child.(*Function).IsUsed {
+                    continue
+                }
+            case NodeVariable:
+                if !child.(*Variable).IsUsed {
+                    continue
+                }
+            case NodeState:
+                if !child.(*State).IsUsed {
+                    continue
+                }
+            }
         }
 
 		if prev != nil {

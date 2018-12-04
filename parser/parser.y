@@ -86,7 +86,7 @@ import (
 %token BOOLEAN
 %token <pos> TRUE FALSE
 
-%token <pos> INCLUDE
+%token <pos> INCLUDE PRAGMA
 
 %token <pos> STRUCT
 %token <pos> SWITCH CASE BREAK CONTINUE
@@ -117,7 +117,7 @@ import (
 %type <script> lscript_program
 %type <nodes> globals
 
-%type <nodes> preproc_include
+%type <nodes> preproc
 
 %type <nodes> global
 %type <comment> comment
@@ -176,39 +176,40 @@ lscript_program:
         for _, child := range $2 {
             $$.Globals = append($$.Globals, child)
         }
-        yylex.(*Lexer).lastNode = $$
     }
 |   globals {
         $$ = yylex.(*Lexer).script
         $$.Globals = append($$.Globals, $1...)
-        yylex.(*Lexer).lastNode = $$
     }
 |   states {
         $$ = yylex.(*Lexer).script
         for _, child := range $1 {
             $$.Globals = append($$.Globals, child)
         }
-        yylex.(*Lexer).lastNode = $$
     }
 
 globals:
     global {
         $$ = $1
     }
-|   globals preproc_include {
+|   preproc {
+        $$ = $1
+    }
+|   globals preproc {
         $$ = append($1, $2...)
     }
 |   globals global {
         $$ = append($1, $2...)
     }
 
-preproc_include:
+preproc:
     '#' INCLUDE STRING_CONSTANT {
         filename := strings.Trim($3, "\"")
         script, err := ParseFile(filename)
         if err != nil {
             yylex.Error(err.Error())
             Nerrs++
+            goto ret1
         } else {
             comment := &nodes.Comment{
                 Text: fmt.Sprintf("#include \"%s\"", filename),
@@ -216,6 +217,16 @@ preproc_include:
             comment.At = $1
 
             $$ = append([]nodes.Node{ comment }, script.Globals...)
+        }
+    }
+|   '#' PRAGMA IDENTIFIER {
+        switch $3 {
+        case "skip_unused":
+            yylex.(*Lexer).script.SkipUnused = true
+        case "no_skip_unused":
+            yylex.(*Lexer).script.SkipUnused = false
+        default:
+            yylex.Error("Invalid pragma " + $3)
         }
     }
 
@@ -246,7 +257,6 @@ comment:
             IsCStyle: false,
         }
         $$.SetPosition(yylex.(*Lexer).LastPos)
-        yylex.(*Lexer).lastNode = $$
     }
 
 |   C_STYLE_COMMENT {
@@ -255,7 +265,6 @@ comment:
             IsCStyle: true,
         }
         $$.SetPosition(yylex.(*Lexer).LastPos)
-        yylex.(*Lexer).lastNode = $$
     }
 
 
@@ -265,7 +274,6 @@ identifier:
             Name: $1,
         }
         $$.SetPosition(yylex.(*Lexer).LastPos)
-        yylex.(*Lexer).lastNode = $$
     }
 
 typename:
@@ -288,7 +296,6 @@ constant:
             },
         }
         $$.SetPosition(yylex.(*Lexer).LastPos)
-        yylex.(*Lexer).lastNode = $$
     }
 |   FLOAT_CONSTANT {
         $$ = &nodes.Constant{
@@ -298,7 +305,6 @@ constant:
             },
         }
         $$.SetPosition(yylex.(*Lexer).LastPos)
-        yylex.(*Lexer).lastNode = $$
     }
 |   STRING_CONSTANT {
         $$ = &nodes.Constant{
@@ -308,7 +314,6 @@ constant:
             },
         }
         $$.SetPosition(yylex.(*Lexer).LastPos)
-        yylex.(*Lexer).lastNode = $$
     }
 |   TRUE {
         $$ = &nodes.Constant{
@@ -318,7 +323,6 @@ constant:
             },
         }
         $$.SetPosition(yylex.(*Lexer).LastPos)
-        yylex.(*Lexer).lastNode = $$
     }
 |   FALSE {
         $$ = &nodes.Constant{
@@ -328,7 +332,6 @@ constant:
             },
         }
         $$.SetPosition(yylex.(*Lexer).LastPos)
-        yylex.(*Lexer).lastNode = $$
     }
 
 
@@ -338,7 +341,6 @@ pre_variable:
             Name: $1,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   identifier '=' expression {
         $$ = &nodes.Variable{
@@ -346,7 +348,6 @@ pre_variable:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   identifier '{' '}' {
         $$ = &nodes.Variable{
@@ -356,7 +357,6 @@ pre_variable:
         }
         $$.RValue.SetPosition($2)
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   identifier '{' struct_expression_variables '}' {
         $$ = &nodes.Variable{
@@ -367,7 +367,6 @@ pre_variable:
         }
         $$.RValue.SetPosition($2)
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 
 pre_variables:
@@ -425,7 +424,6 @@ struct:
             Fields: $4,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 
 function:
@@ -436,7 +434,6 @@ function:
             Body: $4,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   typename identifier '(' ')' block_statement {
         $$ = &nodes.Function{
@@ -445,7 +442,6 @@ function:
             Body: $5,
         }
         $$.SetPosition($2.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   identifier '(' function_arguments ')' block_statement {
         $$ = &nodes.Function{
@@ -455,7 +451,6 @@ function:
             Body: $5,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   typename identifier '(' function_arguments ')' block_statement {
         $$ = &nodes.Function{
@@ -465,7 +460,6 @@ function:
             Body: $6,
         }
         $$.SetPosition($2.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 
 function_arguments:
@@ -485,7 +479,6 @@ function_argument:
             IsArgument: true,
         }
         $$.SetPosition($2.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   identifier identifier {
         $$ = &nodes.Variable{
@@ -494,7 +487,6 @@ function_argument:
             IsArgument: true,
         }
         $$.SetPosition($2.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 
 
@@ -506,7 +498,6 @@ event:
             Body: $4,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   identifier '(' function_arguments ')' block_statement {
         $$ = &nodes.Function{
@@ -516,7 +507,6 @@ event:
             Body: $5,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 
 events:
@@ -552,13 +542,11 @@ default_state:
             Events: $3,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   DEFAULT '{' '}' {
         $$ = &nodes.State{
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 
 state:
@@ -568,14 +556,12 @@ state:
             Events: $4,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   STATE identifier '{' '}' {
         $$ = &nodes.State{
             Name: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 
 block_statement:
@@ -583,14 +569,12 @@ block_statement:
         $$ = &nodes.BlockStatement{
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   '{' statements_with_comments '}' {
         $$ = &nodes.BlockStatement{
             Children: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 
 statements_with_comments:
@@ -625,7 +609,6 @@ empty_statement:
         $$ = &nodes.EmptyStatement{
         }
         $$.SetPosition(yylex.(*Lexer).LastPos)
-        yylex.(*Lexer).lastNode = $$
     }
 
 statement:
@@ -637,51 +620,43 @@ statement:
             Name: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   STATE DEFAULT ';' {
         $$ = &nodes.StateStatement{
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   '@' identifier ';' {
         $$ = &nodes.LabelStatement{
             Name: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   JUMP identifier ';' {
         $$ = &nodes.JumpStatement{
             Name: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   RETURN expression ';' {
         $$ = &nodes.ReturnStatement{
             Value: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   RETURN ';' {
         $$ = &nodes.ReturnStatement{
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression ';' {
         $$ = &nodes.ExpressionStatement{
             Expression: $1,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   block_statement {
         $$ = $1
-        yylex.(*Lexer).lastNode = $$
     }
 |   IF '(' expression ')' statement %prec LOWER_THAN_ELSE {
         $$ = &nodes.IfStatement{
@@ -689,7 +664,6 @@ statement:
             Then: $5,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   IF '(' expression ')' statement ELSE statement {
         $$ = &nodes.IfStatement{
@@ -698,7 +672,6 @@ statement:
             Else: $7,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   FOR '(' for_expression_list ';' expression ';' for_expression_list ')' statement {
         $$ = &nodes.ForStatement{
@@ -708,7 +681,6 @@ statement:
             Body: $9,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   FOR '(' for_expression_list ';' ';' for_expression_list ')' statement {
         $$ = &nodes.ForStatement{
@@ -717,7 +689,6 @@ statement:
             Body: $8,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   DO statement WHILE '(' expression ')' ';' {
         $$ = &nodes.DoStatement{
@@ -725,7 +696,6 @@ statement:
             Condition: $5,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   WHILE '(' expression ')' statement {
         $$ = &nodes.WhileStatement{
@@ -733,7 +703,6 @@ statement:
             Body: $5,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   SWITCH '(' expression ')' block_statement {
         $$ = &nodes.SwitchStatement{
@@ -741,29 +710,24 @@ statement:
             Block: $5,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   CASE next_for_expression_list ':' {
         $$ = &nodes.CaseStatement{
             Expressions: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   DEFAULT ':' {
         $$ = &nodes.CaseStatement{}
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   BREAK ';' {
         $$ = &nodes.BreakStatement{}
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   CONTINUE ';' {
         $$ = &nodes.ContinueStatement{}
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 
 
@@ -791,7 +755,6 @@ lvalue_identifiers:
             Name: $1,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   identifier '.' identifier {
         $$ = &nodes.LValueExpression{
@@ -799,7 +762,6 @@ lvalue_identifiers:
             Item: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 
 list_item_expression:
@@ -810,7 +772,6 @@ list_item_expression:
             StartIndex: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   lvalue_identifiers '[' expression ',' expression ']' {
         $$ = &nodes.ListItemExpression{
@@ -820,7 +781,6 @@ list_item_expression:
             EndIndex: $5,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 
 lvalue:
@@ -838,17 +798,14 @@ lvalue:
             Item: $6,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 
 expression:
     unary_expression {
         $$ = $1
-        yylex.(*Lexer).lastNode = $$
     }
 |   typecast_expression {
         $$ = $1
-        yylex.(*Lexer).lastNode = $$
     }
 |   lvalue '=' expression {
         $$ = &nodes.BinaryExpression{
@@ -857,7 +814,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   lvalue ADD_ASSIGN expression {
         $$ = &nodes.BinaryExpression{
@@ -866,7 +822,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   lvalue SUB_ASSIGN expression {
         $$ = &nodes.BinaryExpression{
@@ -875,7 +830,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   lvalue MUL_ASSIGN expression {
         $$ = &nodes.BinaryExpression{
@@ -884,7 +838,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   lvalue DIV_ASSIGN expression {
         $$ = &nodes.BinaryExpression{
@@ -893,7 +846,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   lvalue MOD_ASSIGN expression {
         $$ = &nodes.BinaryExpression{
@@ -902,7 +854,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression EQ expression {
         $$ = &nodes.BinaryExpression{
@@ -911,7 +862,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression NEQ expression {
         $$ = &nodes.BinaryExpression{
@@ -920,7 +870,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression LEQ expression {
         $$ = &nodes.BinaryExpression{
@@ -929,7 +878,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression GEQ expression {
         $$ = &nodes.BinaryExpression{
@@ -938,7 +886,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression '<' expression {
         $$ = &nodes.BinaryExpression{
@@ -947,7 +894,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression '>' expression {
         $$ = &nodes.BinaryExpression{
@@ -956,7 +902,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression '+' expression {
         $$ = &nodes.BinaryExpression{
@@ -965,7 +910,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression '-' expression {
         $$ = &nodes.BinaryExpression{
@@ -974,7 +918,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression '*' expression {
         $$ = &nodes.BinaryExpression{
@@ -983,7 +926,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression '/' expression {
         $$ = &nodes.BinaryExpression{
@@ -992,7 +934,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression '%' expression {
         $$ = &nodes.BinaryExpression{
@@ -1001,7 +942,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression '&' expression {
         $$ = &nodes.BinaryExpression{
@@ -1010,7 +950,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression '|' expression {
         $$ = &nodes.BinaryExpression{
@@ -1019,7 +958,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression '^' expression {
         $$ = &nodes.BinaryExpression{
@@ -1028,7 +966,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression BOOLEAN_AND expression {
         $$ = &nodes.BinaryExpression{
@@ -1037,7 +974,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression BOOLEAN_OR expression {
         $$ = &nodes.BinaryExpression{
@@ -1046,7 +982,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression SHIFT_LEFT expression {
         $$ = &nodes.BinaryExpression{
@@ -1055,7 +990,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   expression SHIFT_RIGHT expression {
         $$ = &nodes.BinaryExpression{
@@ -1064,7 +998,6 @@ expression:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 
 
@@ -1075,7 +1008,6 @@ unary_expression:
             RValue: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   '!' expression {
         $$ = &nodes.UnaryExpression{
@@ -1083,7 +1015,6 @@ unary_expression:
             RValue: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   '~' expression {
         $$ = &nodes.UnaryExpression{
@@ -1091,7 +1022,6 @@ unary_expression:
             RValue: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   INC_OP lvalue {
         $$ = &nodes.UnaryExpression{
@@ -1099,7 +1029,6 @@ unary_expression:
             RValue: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   DEC_OP lvalue {
         $$ = &nodes.UnaryExpression{
@@ -1107,32 +1036,27 @@ unary_expression:
             RValue: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   DELETE list_item_expression {
         $$ = &nodes.DeleteExpression{
             RValue: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   unary_postfix_expression {
         $$ = $1
-        yylex.(*Lexer).lastNode = $$
     }
 |   '#' unary_expression {
         $$ = &nodes.LengthExpression{
             RValue: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   '(' expression ')' {
         $$ = &nodes.BracesExpression{
             Child: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 
 typecast_expression:
@@ -1142,7 +1066,6 @@ typecast_expression:
             Child: $4,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 
 unary_postfix_expression:
@@ -1153,7 +1076,6 @@ unary_postfix_expression:
             Z: $6,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   '<' expression ',' expression ',' expression ',' expression '>' %prec INITIALIZER {
         $$ = &nodes.RotationExpression{
@@ -1163,27 +1085,23 @@ unary_postfix_expression:
             S: $8,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |  ARRAY_BRACES %prec INITIALIZER {
         $$ = &nodes.ListExpression{
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |  '[' list_values ']' %prec INITIALIZER {
         $$ = &nodes.ListExpression{
             Values: $2,
         }
         $$.SetPosition($1)
-        yylex.(*Lexer).lastNode = $$
     }
 |   struct_expression %prec INITIALIZER {
         $$ = $1
     }
 |   lvalue {
         $$ = $1
-        yylex.(*Lexer).lastNode = $$
     }
 |   lvalue INC_OP {
         $$ = &nodes.UnaryExpression{
@@ -1192,7 +1110,6 @@ unary_postfix_expression:
             IsPostfix: true,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   lvalue DEC_OP {
         $$ = &nodes.UnaryExpression{
@@ -1201,14 +1118,12 @@ unary_postfix_expression:
             IsPostfix: true,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   identifier '(' ')' {
         $$ = &nodes.FunctionCallExpression{
             Name: $1,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   identifier '(' list_values ')' {
         $$ = &nodes.FunctionCallExpression{
@@ -1216,11 +1131,9 @@ unary_postfix_expression:
             Arguments: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   constant {
         $$ = $1
-        yylex.(*Lexer).lastNode = $$
     }
 
 list_values:
@@ -1238,7 +1151,6 @@ struct_expression:
             Name: $1,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 |   identifier '{' struct_expression_variables '}' {
         $$ = &nodes.StructExpression{
@@ -1246,7 +1158,6 @@ struct_expression:
             Fields: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 
 struct_expression_variables:
@@ -1265,23 +1176,9 @@ struct_expression_variable:
             RValue: $3,
         }
         $$.SetPosition($1.Position())
-        yylex.(*Lexer).lastNode = $$
     }
 
 %%
-
-type Lexer struct {
-    scanner.Scanner
-
-    LastPos scanner.Position
-
-    error error
-    script *nodes.Script
-
-    lastNode nodes.Node
-    oldLastNode nodes.Node
-    comment string
-}
 
 var keywords = map[string]int{
     "integer": INTEGER,
@@ -1332,6 +1229,7 @@ var keywords = map[string]int{
     "FALSE": FALSE,
 
     "include": INCLUDE,
+    "pragma": PRAGMA,
 
     "struct": STRUCT,
 
@@ -1347,6 +1245,15 @@ var keywords = map[string]int{
     "delete": DELETE,
 }
 
+type Lexer struct {
+    scanner.Scanner
+
+    LastPos scanner.Position
+
+    error error
+    script *nodes.Script
+}
+
 func (self *Lexer) Lex(lval *yySymType) int {
     var err error
 
@@ -1358,8 +1265,6 @@ func (self *Lexer) Lex(lval *yySymType) int {
     lval.pos.Column -= len(text)
 
     self.LastPos = lval.pos
-
-    //fmt.Printf("%v = '%v' (next: %v)\n", token, text, string(self.Peek()))
 
     if token == scanner.EOF {
         return 0

@@ -66,67 +66,71 @@ func (self *LValueExpression) ConnectTree() {
 	if variable == nil {
 		self.Script.AddError(self, self.At, "undeclared identifier \""+self.Name.String()+"\"")
 		self.isValid = false
-    } else if variable.Type.IsStruct() && self.Item != nil {
-        s, _ := self.Script.Structs[string(variable.Type)]
-        if s == nil {
-            self.Script.AddError(self, self.At, "undeclared struct \""+string(variable.Type)+"\"")
-            self.isValid = false
-        } else {
-            field := s.GetField(self.Item.String())
-            index := s.GetFieldIndex(self.Item.String())
-            if field == nil {
-                self.Script.AddError(self, self.At, "undeclared struct field \""+self.String()+"\"")
+    } else {
+        variable.IsUsed = true
+
+        if variable.Type.IsStruct() && self.Item != nil {
+            s, _ := self.Script.Structs[string(variable.Type)]
+            if s == nil {
+                self.Script.AddError(self, self.At, "undeclared struct \""+string(variable.Type)+"\"")
                 self.isValid = false
             } else {
-                lvalue := &LValueExpression{
-                    Name: self.Name,
-                }
-                lvalue.At = self.At
+                field := s.GetField(self.Item.String())
+                index := s.GetFieldIndex(self.Item.String())
+                if field == nil {
+                    self.Script.AddError(self, self.At, "undeclared struct field \""+self.String()+"\"")
+                    self.isValid = false
+                } else {
+                    lvalue := &LValueExpression{
+                        Name: self.Name,
+                    }
+                    lvalue.At = self.At
 
-                cindex := &Constant{
-                    Value: &types.IntegerValue{
-                        At: self.At,
-                        Value: index,
-                    },
-                }
-                cindex.At = self.At
+                    cindex := &Constant{
+                        Value: &types.IntegerValue{
+                            At: self.At,
+                            Value: index,
+                        },
+                    }
+                    cindex.At = self.At
 
-                self.rnode = &ListItemExpression{
-                    LValue: lvalue,
-                    Type: field.Type,
-                    IsRange: false,
-                    StartIndex: cindex,
-                    EndIndex: cindex,
-                }
-                self.rnode.SetPosition(self.At)
+                    self.rnode = &ListItemExpression{
+                        LValue: lvalue,
+                        Type: field.Type,
+                        IsRange: false,
+                        StartIndex: cindex,
+                        EndIndex: cindex,
+                    }
+                    self.rnode.SetPosition(self.At)
 
-                self.rnode.SetParent(self)
-                self.rnode.SetScope(self.Scope)
-                self.rnode.SetScript(self.Script)
-                self.rnode.ConnectTree()
+                    self.rnode.SetParent(self)
+                    self.rnode.SetScope(self.Scope)
+                    self.rnode.SetScript(self.Script)
+                    self.rnode.ConnectTree()
+                }
+            }
+        } else if self.Item != nil {
+            switch variable.Type {
+            case types.Vector:
+                switch self.Item.String() {
+                case "x", "y", "z":
+                default:
+                    self.Script.AddError(self, self.At, "unknown field \""+self.String()+"\"")
+                    self.isValid = false
+                }
+            case types.Rotation:
+                switch self.Item.String() {
+                case "x", "y", "z", "s":
+                default:
+                    self.Script.AddError(self, self.At, "unknown field \""+self.String()+"\"")
+                    self.isValid = false
+                }
+            default:
+                self.Script.AddError(self, self.At, "unknown field \""+self.String()+"\"")
+                self.isValid = false
             }
         }
-	} else if self.Item != nil {
-		switch variable.Type {
-		case types.Vector:
-			switch self.Item.String() {
-			case "x", "y", "z":
-			default:
-				self.Script.AddError(self, self.At, "unknown field \""+self.String()+"\"")
-				self.isValid = false
-			}
-		case types.Rotation:
-			switch self.Item.String() {
-			case "x", "y", "z", "s":
-			default:
-				self.Script.AddError(self, self.At, "unknown field \""+self.String()+"\"")
-				self.isValid = false
-			}
-		default:
-			self.Script.AddError(self, self.At, "unknown field \""+self.String()+"\"")
-			self.isValid = false
-		}
-	}
+    }
 }
 
 func (self *LValueExpression) ValueType() types.Type {

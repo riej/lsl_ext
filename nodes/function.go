@@ -15,6 +15,9 @@ type Function struct {
 	Body      *BlockStatement
 
 	IsStateEvent bool
+
+
+    IsUsed bool
 }
 
 func (self *Function) NodeType() NodeType {

@@ -16,6 +16,9 @@ type Variable struct {
 
 	IsArgument bool // is function argument?
     IsConstant bool
+
+
+    IsUsed bool
 }
 
 func (self *Variable) NodeType() NodeType {

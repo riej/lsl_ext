@@ -39,6 +39,15 @@ func (self *BlockStatement) String() string {
 			continue
 		}
 
+        if self.Script.SkipUnused {
+            switch child.NodeType() {
+            case NodeVariable:
+                if !child.(*Variable).IsUsed {
+                    continue
+                }
+            }
+        }
+
 		if prev != nil {
 			switch prev.StatementType() {
 			case StatementIf, StatementFor, StatementDo, StatementWhile:

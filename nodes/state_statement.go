@@ -27,12 +27,26 @@ func (self *StateStatement) String() string {
 }
 
 func (self *StateStatement) ConnectTree() {
+    name := "default"
+
 	if self.Name != nil {
 		self.Name.SetParent(self)
 		self.Name.SetScope(self.Scope)
 		self.Name.SetScript(self.Script)
 		self.Name.ConnectTree()
+
+        name = self.Name.String()
 	}
+
+    self.isValid = true
+
+    state, _ := self.Script.States[name]
+    if state == nil {
+        self.Script.AddError(self, self.At, fmt.Sprintf("undefined state \"%s\"", name))
+        self.isValid = false
+    } else {
+        state.IsUsed = true
+    }
 }
 
 func (self *StateStatement) GetChildren() []Node {

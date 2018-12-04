@@ -9,6 +9,9 @@ type State struct {
 
 	Name   *Identifier
 	Events []*Function
+
+
+    IsUsed bool
 }
 
 func (self *State) NodeType() NodeType {
@@ -63,6 +66,7 @@ func (self *State) ConnectTree() {
 	var name string
 	if self.Name == nil {
 		name = "default"
+        self.IsUsed = true
 	} else {
 		name = self.Name.String()
 		if name == "default" {

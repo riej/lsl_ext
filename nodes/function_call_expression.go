@@ -62,6 +62,8 @@ func (self *FunctionCallExpression) ConnectTree() {
 		self.Script.AddError(self, self.At, "undeclared function \""+self.Name.String()+"\"")
 		self.isValid = false
 	} else {
+        f.IsUsed = true
+
         if len(self.Arguments) != len(f.Arguments) {
     		self.Script.AddError(self, self.At, fmt.Sprintf("invalid arguments count (expected %d, found %d)", len(f.Arguments), len(self.Arguments)))
             self.isValid = false
