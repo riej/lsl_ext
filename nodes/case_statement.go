@@ -10,6 +10,8 @@ type CaseStatement struct {
     Switch *SwitchStatement // set from top level
 
     Expressions []Expression
+
+    Body *BlockStatement // for non-legacy switch only
 }
 
 func (self *CaseStatement) NodeType() NodeType {
@@ -27,9 +29,9 @@ func (self *CaseStatement) IfString() string {
 
     expr := ""
     if self.Switch != nil {
-        expr = self.Switch.Expression.String()
+        expr = self.Switch.Expression.RealNode().String()
 
-        if self.Switch.Expression.ExpressionType() == ExpressionBinary {
+        if self.Switch.Expression.RealNode().ExpressionType() == ExpressionBinary {
             expr = "(" + expr + ")"
         }
     }
@@ -37,13 +39,16 @@ func (self *CaseStatement) IfString() string {
     result := "if ("
 
     if len(self.Expressions) == 1 {
-        if self.Expressions[0].ExpressionType() == ExpressionBinary {
-            result += fmt.Sprintf("%s == (%s)", expr, self.Expressions[0])
+        child := self.Expressions[0].RealNode()
+        if child.ExpressionType() == ExpressionBinary {
+            result += fmt.Sprintf("%s == (%s)", expr, child)
         } else {
-            result += fmt.Sprintf("%s == %s", expr, self.Expressions[0])
+            result += fmt.Sprintf("%s == %s", expr, child)
         }
     } else {
         for i, child := range self.Expressions {
+            child = child.RealNode()
+
             if i != 0 {
                 result += " || "
             }
@@ -56,30 +61,47 @@ func (self *CaseStatement) IfString() string {
         }
     }
 
-    result += fmt.Sprintf(") jump %s;", self.Label())
+    result += ") "
+
+    if self.Script.LegacySwitch {
+        result += fmt.Sprintf("jump %s;", self.Label())
+    }
 
     return result
 }
 
 func (self *CaseStatement) String() string {
-    result := ""
+    if self.Script.LegacySwitch {
+        result := ""
 
-    if len(self.Expressions) == 0 {
-        result += fmt.Sprintf("@%s; // default:", self.Label())
-    } else {
-        expr := ""
-        for i, child := range self.Expressions {
-            if i != 0 {
-                expr += ", "
+        if len(self.Expressions) == 0 {
+            result += fmt.Sprintf("@%s; // default:", self.Label())
+        } else {
+            expr := ""
+            for i, child := range self.Expressions {
+                if i != 0 {
+                    expr += ", "
+                }
+
+                expr += child.String()
             }
 
-            expr += child.String()
+            result += fmt.Sprintf("@%s; // case %s:", self.Label(), expr)
         }
 
-        result += fmt.Sprintf("@%s; // case %s:", self.Label(), expr)
-    }
+        return result
+    } else {
+        result := ""
 
-    return result
+        if len(self.Expressions) == 0 {
+        } else {
+            result += self.IfString()
+        }
+
+        result += self.Body.String()
+
+        return result
+    }
 }
 
 func (self *CaseStatement) Label() string {
@@ -98,6 +120,16 @@ func (self *CaseStatement) ConnectTree() {
         self.isValid = self.isValid || child.IsValid()
     }
 
+    if self.Body != nil {
+        self.Body.SetParent(self)
+        self.Body.SetScope(self.Scope)
+        self.Body.SetScript(self.Script)
+        self.Body.SetIndentationLevel(self.IndentationLevel)
+        self.Body.ConnectTree()
+
+        self.isValid = self.isValid || self.Body.IsValid()
+    }
+
     if self.Switch == nil {
         self.Script.AddError(self, self.At, "case statement outside of switch")
         self.isValid = false
@@ -108,6 +140,9 @@ func (self *CaseStatement) GetChildren() []Node {
     result := []Node{}
     for _, child := range self.Expressions {
         result = append(result, child)
+    }
+    if self.Body != nil {
+        result = append(result, self.Body)
     }
     return result
 }

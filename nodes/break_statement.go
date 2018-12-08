@@ -23,6 +23,10 @@ func (self *BreakStatement) String() string {
         return ""
     }
 
+    if self.Breakable.StatementType() == StatementSwitch && !self.Script.LegacySwitch {
+        return ""
+    }
+
     return fmt.Sprintf("jump %s; // break", self.Breakable.BreakLabel())
 }
 

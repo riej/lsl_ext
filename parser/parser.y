@@ -225,6 +225,10 @@ preproc:
             yylex.(*Lexer).script.SkipUnused = true
         case "no_skip_unused":
             yylex.(*Lexer).script.SkipUnused = false
+        case "legacy_switch":
+            yylex.(*Lexer).script.LegacySwitch = true
+        case "no_legacy_switch":
+            yylex.(*Lexer).script.LegacySwitch = false
         default:
             yylex.Error("Invalid pragma " + $3)
         }

@@ -31,6 +31,7 @@ type Script struct {
 
 
     SkipUnused bool
+    LegacySwitch bool
 
 
 	Errors []ScriptError

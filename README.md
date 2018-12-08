@@ -173,6 +173,38 @@ int i = 5;
 switch (i + 1) {
 case 1, 3, 5:
     llOwnerSay("1, 3, 5");
+case 2:
+    llOwnerSay("2");
+case 4:
+    llOwnerSay("4");
+default:
+    llOwnerSay("default");
+}
+```
+&darr;&darr;&darr;
+```lsl
+// switch(i + 1)
+if (((i + 1) == 1) || ((i + 1) == 3) || ((i + 1) == 5)) {
+    llOwnerSay("1, 3, 5");
+} else if ((i + 1) == 2) {
+    llOwnerSay("2");
+} else if ((i + 1) == 4) {
+    llOwnerSay("4");
+} else {
+    llOwnerSay("default");
+}
+```
+
+Simple-in-use switch statement.
+
+#### Legacy
+```c
+#pragma legacy_switch
+
+int i = 5;
+switch (i + 1) {
+case 1, 3, 5:
+    llOwnerSay("1, 3, 5");
     break;
 case 2:
     llOwnerSay("2");
@@ -213,6 +245,8 @@ else jump case_2023;
 ```
 C-style `switch` operator. Almost like in Firestorm, but colon `:` is required, and no need in braces `{...}`.
 
+Use `#pragma legacy_switch` to enable it.
+
 ### Break/continue in loops
 ```c
 integer i;
@@ -247,6 +281,21 @@ Can be used in `for`, `while`, `do` loops. If there aren't any `break`/`continue
 #include "filename.lslx"
 ```
 Pastes specified script as part of current script.
+
+#### Pragma options
+```c
+#pragma legacy_switch
+#pragma no_legacy_switch
+#pragma skip_unused
+#pragma no_skip_unused
+```
+Specify options for translator.
+
+`legacy_switch` enabled C-style (Firestorm-like) `switch` statement support.
+
+`skip_unused` - don't print unused variables and functions. Doesn't works well now, will be reworked in future.
+
+*Warning!!!* Those options can be renamed or changed in future!
 
 #### Aliases
 `boolean` &rarr; `integer`
