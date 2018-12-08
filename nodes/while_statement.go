@@ -33,20 +33,20 @@ func (self *WhileStatement) String() string {
         result += self.Body.String()
 
         if self.HasContinue {
-            result += fmt.Sprintf("\n%s@%s;\n%s", strings.Repeat(Indentation, self.IndentationLevel + 1), self.ContinueLabel(), strings.Repeat(Indentation, self.IndentationLevel));
+            result += fmt.Sprintf("\n%s@%s;\n%s", strings.Repeat(Indentation, self.IndentationLevel + 1), self.ContinueLabel(), strings.Repeat(Indentation, self.IndentationLevel))
         }
 
         result += "}"
 
         if self.HasBreak {
-            result += fmt.Sprintf("\n%s@%s;\n", strings.Repeat(Indentation, self.IndentationLevel), self.BreakLabel());
+            result += fmt.Sprintf("\n%s@%s;\n", strings.Repeat(Indentation, self.IndentationLevel), self.BreakLabel())
         }
     case StatementBreak:
         result = "// " + result + " break;"
     case StatementContinue:
         result += ";"
     default:
-        result += self.Body.String()
+        result += fmt.Sprintf("\n%s%s\n", strings.Repeat(Indentation, self.IndentationLevel + 1), self.Body)
     }
 
     return result

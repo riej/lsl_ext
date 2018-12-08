@@ -73,7 +73,7 @@ func (self *ForStatement) String() string {
     case StatementContinue:
         result += ";"
     default:
-        result += self.Body.String()
+        result += fmt.Sprintf("\n%s%s\n", strings.Repeat(Indentation, self.IndentationLevel + 1), self.Body)
     }
 
 	return result

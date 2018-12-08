@@ -74,6 +74,8 @@ func (self *Script) String() string {
             if child.StatementType() == StatementComment {
                 if child.Position().Line == prev.Position().Line {
                     result = strings.TrimRight(result, "\n\r\t ") + " "
+                } else {
+                    result = strings.TrimRight(result, "\n\r\t ") + "\n\n"
                 }
             } else if prev.StatementType() != child.StatementType() && prev.StatementType() != StatementComment {
 				result += "\n"

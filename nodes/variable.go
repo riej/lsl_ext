@@ -2,7 +2,6 @@ package nodes
 
 import (
     "strings"
-    "fmt"
 
 	"../types"
 )
@@ -71,6 +70,10 @@ func (self *Variable) ConnectTree() {
 	self.Name.ConnectTree()
 
 	if self.RValue != nil {
+        if self.RValue.ExpressionType() == ExpressionListItem {
+            self.RValue.(*ListItemExpression).Type = self.Type
+        }
+
 		self.RValue.SetParent(self)
 		self.RValue.SetScope(self.Scope)
 		self.RValue.SetScript(self.Script)
@@ -97,7 +100,6 @@ func (self *Variable) ConnectTree() {
     }
 
 	if self.RValue != nil && self.RValue.IsValid() && !self.Type.IsCompatible(self.RValue.ValueType()) {
-        fmt.Printf("%s   %s %s\n\n", self, self.Type, self.RValue.ValueType())
 		self.Script.AddError(self, self.At, "type mismatch")
 		self.isValid = false
 	}

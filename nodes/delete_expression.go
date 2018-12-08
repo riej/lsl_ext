@@ -52,6 +52,14 @@ func (self *DeleteExpression) ConnectTree() {
     self.isValid = self.RValue.IsValid()
 }
 
+func (self *DeleteExpression) ValueType() types.Type {
+    if self.RValue.LValue.ValueType() == types.String {
+        return types.String
+    } else {
+        return types.List
+    }
+}
+
 func (self *DeleteExpression) GetChildren() []Node {
     return []Node{ self.RValue }
 }

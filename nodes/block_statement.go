@@ -64,11 +64,7 @@ func (self *BlockStatement) String() string {
 					result += "\n"
 				}
 			default:
-                if child.StatementType() == StatementComment {
-                    if child.Position().Line == prev.Position().Line {
-                        result = strings.TrimRight(result, "\n\r\t ") + " "
-                    }
-                } else if prev.StatementType() != child.StatementType() {
+                if prev.StatementType() != child.StatementType() {
 					result += "\n"
 				}
 			}
@@ -77,8 +73,10 @@ func (self *BlockStatement) String() string {
         switch child.StatementType() {
         case StatementComment:
             if prev != nil && child.Position().Line == prev.Position().Line {
+                result = strings.TrimRight(result, "\n\r\t ") + " "
                 result += child.String() + "\n"
             } else {
+                result = strings.TrimRight(result, "\n\r\t ") + "\n\n"
                 result += strings.Repeat(Indentation, child.GetIndentationLevel())
                 result += child.String() + "\n"
             }
