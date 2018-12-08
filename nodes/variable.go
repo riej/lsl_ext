@@ -32,7 +32,7 @@ func (self *Variable) StatementType() StatementType {
 func (self *Variable) String() string {
 	result := self.Type.String() + " " + self.Name.String()
 	if self.RValue != nil {
-		result += " = " + self.RValue.String()
+		result += " = " + self.RValue.RealNode().String()
 	}
 
 	if !self.IsArgument {
@@ -44,7 +44,7 @@ func (self *Variable) String() string {
 
 func (self *Variable) ValueString() string {
     if self.RValue != nil {
-        return self.RValue.String()
+        return self.RValue.RealNode().String()
     }
 
     switch self.Type {
